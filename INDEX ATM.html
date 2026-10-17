@@ -1,0 +1,244 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATM Management System</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #edf3f9;
+    margin: 0;
+    color: #183047;
+}
+header {
+    background: #102b46;
+    color: white;
+    text-align: center;
+    padding: 22px;
+}
+main {
+    max-width: 750px;
+    margin: 30px auto;
+    padding: 20px;
+}
+.card {
+    background: white;
+    padding: 24px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px #0001;
+}
+input {
+    display: block;
+    width: 95%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 1px solid #ccd6e0;
+    border-radius: 6px;
+}
+button {
+    padding: 11px 16px;
+    margin: 5px 4px 5px 0;
+    background: #1769aa;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+button:hover { background: #105080; }
+#dashboard { display: none; }
+#balance {
+    font-size: 30px;
+    color: #16835d;
+    font-weight: bold;
+}
+#message { min-height: 20px; }
+li { padding: 6px; }
+</style>
+</head>
+
+<body>
+<header>
+    <h1>ATM Management System</h1>
+    <p>Java Banking Application</p>
+</header>
+
+<main>
+    <section class="card" id="login">
+        <h2>Customer Login</h2>
+        <input id="account" value="1001"
+               placeholder="Account Number">
+        <input id="pin" type="password" maxlength="4"
+               placeholder="4-digit PIN">
+        <button onclick="loginUser()">Login</button>
+        <p>Demo account: 1001 | PIN: 1234</p>
+    </section>
+
+    <section id="dashboard">
+        <div class="card">
+            <h2>Account Dashboard</h2>
+            <p>Available balance</p>
+            <div id="balance">₹5,000.00</div>
+            <button onclick="checkBalance()">Refresh Balance</button>
+            <button onclick="logout()">Logout</button>
+        </div>
+
+        <div class="card">
+            <h2>Deposit Money</h2>
+            <input type="number" id="depositAmount"
+                   min="1" placeholder="Enter amount">
+            <button onclick="deposit()">Deposit</button>
+        </div>
+
+        <div class="card">
+            <h2>Withdraw Cash</h2>
+            <input type="number" id="withdrawAmount"
+                   min="1" placeholder="Enter amount">
+            <button onclick="withdraw()">Withdraw</button>
+        </div>
+
+        <div class="card">
+            <h2>Change PIN</h2>
+            <input type="password" id="oldPin" maxlength="4"
+                   placeholder="Current PIN">
+            <input type="password" id="newPin" maxlength="4"
+                   placeholder="New 4-digit PIN">
+            <button onclick="changePin()">Change PIN</button>
+        </div>
+
+        <div class="card">
+            <h2>Mini Statement</h2>
+            <button onclick="statement()">Show Transactions</button>
+            <ul id="transactions"></ul>
+        </div>
+    </section>
+
+    <div class="card">
+        <p id="message" role="status"></p>
+    </div>
+</main>
+
+<script>
+async function request(url, data) {
+    const options = data === undefined ? {} : {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    };
+
+    const response = await fetch(url, options);
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+        throw new Error(result.message || "Request failed");
+    }
+    return result;
+}
+
+function showMessage(text) {
+    document.getElementById("message").textContent = text;
+}
+
+async function loginUser() {
+    try {
+        await request("/api/login", {
+            account: document.getElementById("account").value,
+            pin: document.getElementById("pin").value
+        });
+
+        document.getElementById("login").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+        document.getElementById("pin").value = "";
+        showMessage("Login successful!");
+        await checkBalance();
+        await statement();
+    } catch (e) {
+        showMessage(e.message);
+    }
+}
+
+async function checkBalance() {
+    try {
+        const result = await request("/api/balance");
+        document.getElementById("balance").textContent =
+            "₹" + Number(result.balance).toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+    } catch (e) {
+        showMessage(e.message);
+    }
+}
+
+async function deposit() {
+    try {
+        const amount = document.getElementById("depositAmount").value;
+        const result = await request("/api/deposit", {amount: String(amount)});
+        showMessage(result.message);
+        document.getElementById("depositAmount").value = "";
+        await checkBalance();
+        await statement();
+    } catch (e) {
+        showMessage(e.message);
+    }
+}
+
+async function withdraw() {
+    try {
+        const amount = document.getElementById("withdrawAmount").value;
+        const result = await request("/api/withdraw", {amount: String(amount)});
+        showMessage(result.message);
+        document.getElementById("withdrawAmount").value = "";
+        await checkBalance();
+        await statement();
+    } catch (e) {
+        showMessage(e.message);
+    }
+}
+
+async function statement() {
+    try {
+        const result = await request("/api/transactions");
+        const list = document.getElementById("transactions");
+        list.replaceChildren();
+
+        result.transactions.forEach(item => {
+            const li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+        });
+    } catch (e) {
+        showMessage(e.message);
+    }
+}
+
+async function changePin() {
+    try {
+        const result = await request("/api/change-pin", {
+            oldPin: document.getElementById("oldPin").value,
+            newPin: document.getElementById("newPin").value
+        });
+        showMessage(result.message);
+        document.getElementById("oldPin").value = "";
+        document.getElementById("newPin").value = "";
+    } catch (e) {
+        showMessage(e.message);
+    }
+}
+
+async function logout() {
+    try {
+        await request("/api/logout", {});
+        document.getElementById("dashboard").style.display = "none";
+        document.getElementById("login").style.display = "block";
+        showMessage("Logged out successfully.");
+    } catch (e) {
+        showMessage(e.message);
+    }
+}
+</script>
+</body>
+</html>
